@@ -1,4 +1,4 @@
-VERSION=2.0
+VERSION=2.1
 # This is root of installation tree
 PREFIX=/usr/local
 CC=gcc
@@ -43,4 +43,6 @@ install:
 	${INSTALL} -m 755 -c libsyslog.so.${VERSION} ${LIBDIR}/syslog 
 	${INSTALL} -m 644 -c pkgIndex.tcl ${LIBDIR}/syslog
 	${INSTALL} -m 644 -c syslog.n ${MANDIR}/syslog.${MANSUFFIX}
-
+tar:
+	
+	tar czfC ../tclsyslog-${VERSION}.tar.gz .. tclsyslog --exclude CVS

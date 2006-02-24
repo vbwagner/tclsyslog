@@ -10,6 +10,7 @@ typedef struct {
                 char ident[32];
                 Tcl_HashTable *priorities;
                 Tcl_HashTable *facilities;
+		Tcl_HashTable *option_names;
                } SyslogInfo;
 
 void Syslog_ListHash(Tcl_Interp *interp,Tcl_HashTable *table);	       
@@ -56,9 +57,30 @@ int Syslog_Log(ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj *CONST  ob
             info-> logOpened=0;
         }
      } else if (!strncmp(Tcl_GetString(objv[i]),"-options",9)) {
-         long tmp;
-        if (Tcl_GetLongFromObj(interp,objv[i+1],&tmp)==TCL_ERROR)
-             return TCL_ERROR;
+            int tmp;
+            int j,n;
+	    Tcl_Obj *elem;
+	    Tcl_HashEntry *entry;
+	    Tcl_ResetResult(interp);
+	    tmp=0;
+	    if (Tcl_ListObjLength(interp,objv[i+1],&n)==TCL_ERROR) {
+		return TCL_ERROR;
+            }		
+	    for (j=0;j<n;j++) {
+	        Tcl_ListObjIndex(interp,objv[i+1],j,&elem);
+	        entry=Tcl_FindHashEntry(info->option_names,Tcl_GetString(elem));
+	        if (!entry) {
+		    if (n!=1 || Tcl_GetIntFromObj(interp,elem,&tmp)!=TCL_OK) {
+			Tcl_AppendResult(interp,"Invalid option '",
+				Tcl_GetString(elem),"' valid ones are:",NULL);
+			Syslog_ListHash(interp,info->option_names);
+			return TCL_ERROR;
+	            }
+		} else {   	 
+		    tmp |= (int) Tcl_GetHashValue(entry);
+		}    
+	    }	
+	    
         info->options=tmp;
         if (info->logOpened) {
             closelog();
@@ -219,6 +241,14 @@ int Syslog_Init(Tcl_Interp *interp)
    AddEntry(info->priorities,"notice",LOG_NOTICE);
    AddEntry(info->priorities,"info",LOG_INFO);
    AddEntry(info->priorities,"debug",LOG_DEBUG);
+   info->option_names=(Tcl_HashTable *) Tcl_Alloc(sizeof(Tcl_HashTable));
+   Tcl_InitHashTable(info->option_names,TCL_STRING_KEYS);
+   AddEntry(info->option_names,"CONS",LOG_CONS);
+   AddEntry(info->option_names,"NDELAY",LOG_NDELAY);
+   AddEntry(info->option_names,"PERROR",LOG_PERROR);
+   AddEntry(info->option_names,"PID",LOG_PID);
+   AddEntry(info->option_names,"ODELAY",LOG_ODELAY);
+   AddEntry(info->option_names,"NOWAIT",LOG_NOWAIT);
    Tcl_CreateObjCommand(interp,"syslog",Syslog_Log,(ClientData) info,
             Syslog_Delete); 
    return Tcl_PkgProvide(interp,"Syslog",VERSION);

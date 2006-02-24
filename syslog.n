@@ -2,7 +2,7 @@
 '\" Copyright (c) 1999 Victor B. Wagner
 '\"
 '\" 
-'\" RCS: @(#) $Id: syslog.n,v 1.2 2006-02-24 14:13:07 vitus Exp $
+'\" RCS: @(#) $Id: syslog.n,v 1.2.2.1 2006-02-24 14:14:08 vitus Exp $
 '\" 
 '\" The definitions below are for supplemental macros used in Tcl/Tk
 '\" manual entries.
@@ -65,7 +65,7 @@
 '\" .UL arg1 arg2
 '\"	Print arg1 underlined, then print arg2 normally.
 '\"
-'\" RCS: @(#) $Id: syslog.n,v 1.2 2006-02-24 14:13:07 vitus Exp $
+'\" RCS: @(#) $Id: syslog.n,v 1.2.2.1 2006-02-24 14:14:08 vitus Exp $
 '\"
 '\"	# Set up traps and other miscellaneous stuff for Tcl/Tk man pages.
 .if t .wh -1.3i ^B
@@ -267,20 +267,33 @@ specified before \fIpriority\fR to control these parameters:
 \fB\-facility\fR \fIvalue\fR
 Use specified facility instead of \fBuser\fR. Following facility are
 recognized:
+.RS
 .PP
 \fBauthpriv\fR, \fBcron\fR, \fBdaemon\fR, \fBkernel\fR, \fBlpr\fR, 
 \fBmail\fR, \fBnews\fR, \fBsyslog\fR, \fBuser\fR, \fBuucp\fR, \fBlocal0\fR,
 \fBlocal1\fR, \fBlocal2\fR.
+.RE
 .TP 20
 \fB\-ident\fR \fIstring\fR
 Use given \fIstring\fR instead of \fBargv0\fB variable for ident string.
 .TP 20
-\fB\-options\fR \fIinteger\fR
+\fB\-options\fR \fIlist\fR
 Set syslog options such as \fBLOG_CONS\fR, \fBLOG_NDELAY\fR
-You should user numeric values of those from your system \fBsyslog.h\fR
-file, becouse I haven't got time to implement yet another hash table.  
+List should contain one or more strings 
+\fBCONS\fR, \fBNDELAY\fR, \fBODELAY\fR, \fBPERROR\fR, \fBPID\fR, \fBNOWAIT\fR
+.RS
+.PP 
+Options \fBNDELAY\fR and \fBODELAY\fR are effectively no-op, becouse
+\fBopenlog\fR(3) call is only performed upon first message send. 
+.PP
+Numeric value of options can be specified instead of list for
+compatibility with older versions. Mixing of numeric and string
+constants are not allowed.
 .RE
-
+.PP
+If any options are specified, \fIpriority\fR and \fImessage\fR arguments 
+can be omitted. In this case \fBsyslog\fR command only sets logging
+parameters which would be used for subsequent calls.
 
 .SH KEYWORDS
 logging, syslog
