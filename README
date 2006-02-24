@@ -8,10 +8,11 @@ got time for writing proper autoconf configuration, but should be fairly
 easy to configure and build by anybody who knows what syslog is and why
 to use it.
 
-This version is designed for Tcl 8.0 or below. It uses old string-based
-API and should be compatible with any Tcl version down to 7.4
+This version is designed for Tcl 8.1 and above. It is unicode-aware and
+convert messages to current system encoding before sending them to
+syslog. And it uses stubs.
 
-If you use tcl 8.1 or above go and get tclsyslog-2.0 
+If you use tcl 8.0.x go and get tclsyslog-1.1 
 
 Home site of this package is at
 
@@ -21,7 +22,7 @@ Installation
 
 1. Edit variables on the top of Makefile
 2. Do make all
-3. Test extension by loading it into tclsh via load ./libsyslog.so.1.1 
+3. Test extension by loading it into tclsh via load ./libsyslog.so.2.0 
    and sending couple of messages from command line
 4. Verify that PREFIX variable set so that ${PREFIX}/lib is included in
    your tcl_pkgPath (or set LIBDIR to directory in tcl_pkgPath)

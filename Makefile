@@ -1,4 +1,4 @@
-VERSION=1.1
+VERSION=2.0
 # This is root of installation tree
 PREFIX=/usr/local
 CC=gcc
@@ -6,10 +6,11 @@ CC=gcc
 # Don't forget to change if your CC is not gcc
 #
 CFLAGS=-Wall -fPIC
-LDFLAGS=-shared
-# No need to link with libtcl8.0 on ELF system. Your setup might be
-# different
-LOADLIBES=
+LDFLAGS=-shared -L/usr/local/lib
+# Have to set it manually becouse otherwise gcc would pick includes from
+# 8.0 on my system
+INCLUDES=-I/usr/local/include
+LOADLIBES=-ltclstub8.2
 # This is where package would be installed
 LIBDIR=${PREFIX}/lib
 # On my Debian system this would be
@@ -28,7 +29,7 @@ INSTALL=/usr/bin/install
 all: libsyslog.so.${VERSION} pkgIndex.tcl
 
 libsyslog.so.${VERSION}: tclsyslog.o
-	gcc ${LDFLAGS} -o libsyslog.so.${VERSION} -DVERSION=\"${VERSION}\" tclsyslog.o ${LOADLIBES}
+	gcc ${LDFLAGS} -o libsyslog.so.${VERSION} -DUSE_TCL_STUBS -DVERSION=\"${VERSION}\" tclsyslog.o ${LOADLIBES}
 
 tclsyslog.o: tclsyslog.c
 	${CC} ${CFLAGS} ${INCLUDES} -DVERSION=\"${VERSION}\" -c tclsyslog.c

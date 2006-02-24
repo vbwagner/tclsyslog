@@ -30,22 +30,23 @@ void SyslogHelp(Tcl_Interp *interp,char *cmdname)
  */
 
 
-int Syslog_Log(ClientData data, Tcl_Interp *interp, int argc, char **argv)
+int Syslog_Log(ClientData data, Tcl_Interp *interp, int objc, Tcl_Obj *CONST  objv[])
 {    SyslogInfo *info=(SyslogInfo *)data;
-    char *message = NULL;
+    Tcl_DString *message = NULL;
     int priority;
     int i=1;
-    if (argc<=1) {
-        SyslogHelp(interp,argv[0]);
+    if (objc<=1) {
+        SyslogHelp(interp,Tcl_GetString(objv[0]));
         return TCL_ERROR;
     }
-  while (i<argc-1) {
-    if (!strcmp(argv[i],"-facility")) {
-        Tcl_HashEntry * entry=Tcl_FindHashEntry(info->facilities,argv[i+1]);
+  while (i<objc-1) {
+    if (!strncmp(Tcl_GetString(objv[i]),"-facility",10)) {
+	char *facility_name = Tcl_GetString(objv[i+1]);
+        Tcl_HashEntry * entry=Tcl_FindHashEntry(info->facilities,facility_name);
         if (!entry) {
-           Tcl_AppendResult(interp,"Invalid facility name: \"",argv[i+1],
-		   "\" available facilities:",
-               NULL);
+           Tcl_AppendResult(interp,"Invalid facility name: \"",Tcl_GetString(objv[i+1]),"\"",
+                " available facilities: ",
+		   NULL);
 	   Syslog_ListHash(interp,info->facilities);
            return TCL_ERROR;
         }
@@ -54,43 +55,56 @@ int Syslog_Log(ClientData data, Tcl_Interp *interp, int argc, char **argv)
             closelog();
             info-> logOpened=0;
         }
-     } else if (!strcmp(argv[i],"-options")) {
-         int tmp;
-        if (Tcl_GetInt(interp,argv[i+1],&tmp)==TCL_ERROR)
+     } else if (!strncmp(Tcl_GetString(objv[i]),"-options",9)) {
+         long tmp;
+        if (Tcl_GetLongFromObj(interp,objv[i+1],&tmp)==TCL_ERROR)
              return TCL_ERROR;
         info->options=tmp;
         if (info->logOpened) {
             closelog();
             info->logOpened=0;
         }
-     } else if (!strcmp(argv[i],"-ident")) {
-        strncpy(info->ident, argv[i+1],32);
+     } else if (!strncmp(Tcl_GetStringFromObj(objv[i],NULL),"-ident",7)) {
+        char *ident_name=Tcl_GetString(objv[i+1]);
+	Tcl_DString *dstring=(Tcl_DString *)Tcl_Alloc(sizeof(Tcl_DString));
+	Tcl_DStringInit(dstring);
+	Tcl_UtfToExternalDString(NULL,ident_name,strlen(ident_name),
+          dstring);		 
+	 strncpy(info->ident,Tcl_DStringValue(dstring),32);
+	 Tcl_DStringFree(dstring);
+	 Tcl_Free((char *)dstring);
         info->ident[31]=0;
         if (info->logOpened) {
             closelog();
             info->logOpened=0;
         }
      } else {
-       Tcl_HashEntry *entry=Tcl_FindHashEntry(info->priorities,argv[i]);
+	 char *messageutf;
+       Tcl_HashEntry *entry=Tcl_FindHashEntry(info->priorities,Tcl_GetString(objv[i]));
        if (!entry) {
-          Tcl_AppendResult(interp,"Invalid syslog level \"",argv[i],
-		  "\" available levels:",
+          Tcl_AppendResult(interp,"Invalid syslog level \"",Tcl_GetString(objv[i]),"\"",
+		  " available levels: ",
                NULL);
 	  Syslog_ListHash(interp,info->priorities); 
           return TCL_ERROR;
        }
        priority=(int)Tcl_GetHashValue(entry);
-       message=argv[i+1];
+       message=(Tcl_DString *)Tcl_Alloc(sizeof(Tcl_DString));
+       Tcl_DStringInit(message);
+       messageutf=Tcl_GetString(objv[i+1]);
+       Tcl_UtfToExternalDString(NULL,messageutf,strlen(messageutf),
+	        message);
+      
        i+=2;
-       if (i<argc-1) {
-           SyslogHelp(interp,argv[0]);
+       if (i<objc-1) {
+           SyslogHelp(interp,Tcl_GetString(objv[0]));
            return TCL_ERROR;
        }
      }
      i+=2;
   }
-  if (i<argc-1) {
-     SyslogHelp(interp,argv[0]);
+  if (i<objc-1) {
+     SyslogHelp(interp,Tcl_GetString(objv[0]));
      return TCL_ERROR;
   }
   if (message) {
@@ -98,10 +112,28 @@ int Syslog_Log(ClientData data, Tcl_Interp *interp, int argc, char **argv)
 	  openlog(info->ident,info->options,info->facility);
 	  info->logOpened=1;
       }
-      syslog(priority,"%s",message);
+      syslog(priority,"%s",Tcl_DStringValue(message));
+      Tcl_DStringFree(message);
+      Tcl_Free((char *)message);
   }
   return TCL_OK;
 }
+/* 
+ *  Syslog_Delete - Tcl_CmdDeleteProc for syslog command.
+ *  Frees all hash tables and closes log if it was opened.
+ */
+void Syslog_Delete(ClientData data)
+{ SyslogInfo *info=(SyslogInfo *)data;
+  Tcl_DeleteHashTable(info->facilities);
+  Tcl_Free((char *)info->facilities);
+  Tcl_DeleteHashTable(info->priorities);
+  Tcl_Free((char *)info->priorities);
+  if (info->logOpened) {
+     closelog();
+  }
+  Tcl_Free((char *)info);
+}
+
 /*
  * Syslog_ListHash - appends to interp result all the values of given
  * hash table
@@ -120,21 +152,6 @@ void Syslog_ListHash(Tcl_Interp *interp,Tcl_HashTable *table)
     }   
     Tcl_Free((char *)searchPtr);
 } 
-/* 
- *  Syslog_Delete - Tcl_CmdDeleteProc for syslog command.
- *  Frees all hash tables and closes log if it was opened.
- */
-void Syslog_Delete(ClientData data)
-{ SyslogInfo *info=(SyslogInfo *)data;
-  Tcl_DeleteHashTable(info->facilities);
-  Tcl_Free((char *)info->facilities);
-  Tcl_DeleteHashTable(info->priorities);
-  Tcl_Free((char *)info->priorities);
-  if (info->logOpened) {
-     closelog();
-  }
-  Tcl_Free((char *)info);
-}
 /*
  * My simplified wrapper for add values into hash
  *
@@ -152,7 +169,11 @@ void AddEntry(Tcl_HashTable *table,char *key,int value)
  */
 int Syslog_Init(Tcl_Interp *interp)
 {  char *argv0;
-   SyslogInfo *info=(SyslogInfo *)Tcl_Alloc(sizeof(SyslogInfo));
+    SyslogInfo *info;
+   if (Tcl_InitStubs(interp,"8.1",0)==NULL) {
+      return TCL_ERROR;
+   }     
+   info=(SyslogInfo *)Tcl_Alloc(sizeof(SyslogInfo));
    info->logOpened=0;
    info->options=0;
    info->facility=LOG_USER;
@@ -198,7 +219,7 @@ int Syslog_Init(Tcl_Interp *interp)
    AddEntry(info->priorities,"notice",LOG_NOTICE);
    AddEntry(info->priorities,"info",LOG_INFO);
    AddEntry(info->priorities,"debug",LOG_DEBUG);
-   Tcl_CreateCommand(interp,"syslog",Syslog_Log,(ClientData) info,
+   Tcl_CreateObjCommand(interp,"syslog",Syslog_Log,(ClientData) info,
             Syslog_Delete); 
    return Tcl_PkgProvide(interp,"Syslog",VERSION);
 }
